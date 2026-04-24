@@ -1,0 +1,27 @@
+{
+  "name": "pyxis-payment-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for local Pyxis Payment API simulation — lets developers build and test integrations without hitting a live endpoint.",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "pyxis-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "http": "tsx src/http-bridge.ts",
+    "http:prod": "node dist/http-bridge.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "~5.8.2",
+    "vitest": "^4.1.0"
+  }
+}
