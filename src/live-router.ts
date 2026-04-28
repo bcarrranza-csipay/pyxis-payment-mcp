@@ -271,6 +271,82 @@ export async function handleToolCall(
         },
       });
 
+    // ── Get Mode — returns current PYXIS_MODE + seeded mock transactions ──
+    case "pyxis_get_mode": {
+      const mode = process.env.PYXIS_MODE ?? "simulator";
+      const now = new Date();
+      const fmt = (d: Date) => d.toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
+      const ago = (minutes: number) => new Date(now.getTime() - minutes * 60 * 1000);
+
+      const seededTransactions = mode === "mock" ? [
+        {
+          transactionId: "mock-seed-001",
+          type: "Sale",
+          transactionStatus: "Approved",
+          terminalId: process.env.PYXIS_TERMINAL_ID ?? "mock-terminal-001",
+          totalAmount: "5000",
+          approvedAmount: "5000",
+          feeAmount: "150",
+          approvalNumber: "A1B2C3",
+          accountType: "Visa",
+          accountFirst6: "411111",
+          accountLast4: "1111",
+          accountMasked: "411111******1111",
+          gatewayResponseCode: "00",
+          gatewayResponseMessage: "APPROVAL",
+          creationTime: fmt(ago(120)),
+          isDeclined: false,
+          isMockSeed: true,
+        },
+        {
+          transactionId: "mock-seed-002",
+          type: "Sale",
+          transactionStatus: "Approved",
+          terminalId: process.env.PYXIS_TERMINAL_ID ?? "mock-terminal-001",
+          totalAmount: "2530",
+          approvedAmount: "2530",
+          feeAmount: "76",
+          approvalNumber: "D4E5F6",
+          accountType: "MasterCard",
+          accountFirst6: "555555",
+          accountLast4: "4444",
+          accountMasked: "555555******4444",
+          gatewayResponseCode: "00",
+          gatewayResponseMessage: "APPROVAL",
+          creationTime: fmt(ago(60)),
+          isDeclined: false,
+          isMockSeed: true,
+        },
+        {
+          transactionId: "mock-seed-003",
+          type: "Sale",
+          transactionStatus: "Declined",
+          terminalId: process.env.PYXIS_TERMINAL_ID ?? "mock-terminal-001",
+          totalAmount: "50001",
+          approvedAmount: "0",
+          feeAmount: "0",
+          approvalNumber: "",
+          accountType: "Visa",
+          accountFirst6: "424242",
+          accountLast4: "4242",
+          accountMasked: "424242******4242",
+          gatewayResponseCode: "05",
+          gatewayResponseMessage: "Decline",
+          creationTime: fmt(ago(30)),
+          isDeclined: true,
+          isMockSeed: true,
+        },
+      ] : [];
+
+      return respond({
+        status: "Success",
+        operation: "GetMode",
+        responseTimestamp: fmt(now),
+        mode,
+        seededTransactions,
+      });
+    }
+
     default:
       return respond({ status: "Error", errorMsg: `Unknown tool: ${name}` });
   }

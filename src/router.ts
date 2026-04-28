@@ -302,5 +302,19 @@ export function handleToolCall(
 
     default:
       return textAndLog({ status: "Error", errorMsg: `Unknown tool: ${name}` });
+
+    // -- Get Mode ----------------------------------------------------------
+    case "pyxis_get_mode": {
+      const mode = process.env.PYXIS_MODE ?? "simulator";
+      const now = new Date();
+      const fmt = (d: Date) => d.toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
+      return textAndLog({
+        status: "Success",
+        operation: "GetMode",
+        responseTimestamp: fmt(now),
+        mode,
+        seededTransactions: [], // simulator has no seeded transactions
+      });
+    }
   }
 }
