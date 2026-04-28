@@ -10,7 +10,14 @@
  * Listens on port 3000 (override with PORT env var).
  */
 import http from "node:http";
-import { handleToolCall } from "./router.js";
+import { handleToolCall as simHandleToolCall } from "./router.js";
+import { handleToolCall as liveHandleToolCall } from "./live-router.js";
+
+// Use live-router when PYXIS_MODE is "mock" or "live"; fall back to simulator otherwise
+const isMockOrLive = process.env.PYXIS_MODE === "mock" || process.env.PYXIS_MODE === "live";
+const handleToolCall = isMockOrLive
+  ? (name: string, args: Record<string, unknown>) => liveHandleToolCall(name, args)
+  : simHandleToolCall;
 
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
 
@@ -46,14 +53,14 @@ const server = http.createServer((req, res) => {
 
   let body = "";
   req.on("data", (chunk) => (body += chunk));
-  req.on("end", () => {
+  req.on("end", async () => {
     try {
       const rpc = JSON.parse(body);
       const { id, params } = rpc;
       const toolName = params?.name as string;
       const args = (params?.arguments ?? {}) as Record<string, unknown>;
 
-      const result = handleToolCall(toolName, args);
+      const result = await handleToolCall(toolName, args);
 
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ jsonrpc: "2.0", id, result }));
