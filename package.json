@@ -13,6 +13,7 @@
     "start": "node dist/index.js",
     "http": "tsx src/http-bridge.ts",
     "http:prod": "node dist/http-bridge.js",
+    "start:http": "node dist/http-bridge.js",
     "test": "vitest run"
   },
   "dependencies": {

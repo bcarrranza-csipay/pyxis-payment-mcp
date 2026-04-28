@@ -1,0 +1,34 @@
+{
+  "ServiceName": "pyxis-payment-mcp-demo",
+  "SourceConfiguration": {
+    "ImageRepository": {
+      "ImageIdentifier": "699897454429.dkr.ecr.us-east-1.amazonaws.com/pyxis-payment-mcp:latest",
+      "ImageConfiguration": {
+        "Port": "8080",
+        "RuntimeEnvironmentVariables": {
+          "PORT": "8080",
+          "PYXIS_MCP_USERNAME": "sandbox",
+          "PYXIS_MCP_PASSWORD": "sandbox",
+          "PYXIS_AUDIT_LOG": "/tmp/pyxis-audit.log"
+        }
+      },
+      "ImageRepositoryType": "ECR"
+    },
+    "AutoDeploymentsEnabled": true,
+    "AuthenticationConfiguration": {
+      "AccessRoleArn": "arn:aws:iam::699897454429:role/AppRunnerECRAccessRole"
+    }
+  },
+  "HealthCheckConfiguration": {
+    "Protocol": "HTTP",
+    "Path": "/health",
+    "Interval": 10,
+    "Timeout": 5,
+    "HealthyThreshold": 1,
+    "UnhealthyThreshold": 3
+  },
+  "InstanceConfiguration": {
+    "Cpu": "0.5 vCPU",
+    "Memory": "1 GB"
+  }
+}
