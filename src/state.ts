@@ -1,4 +1,5 @@
 import { randomUUID, createHash } from "crypto";
+import { redisSave, redisUpdate, redisLoadAll } from "./redis-store.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -152,6 +153,8 @@ class PyxisState {
 
   saveTransaction(tx: Transaction): void {
     this.transactions.set(tx.transactionId, tx);
+    // Mirror to Redis (fire-and-forget — never blocks)
+    redisSave(tx).catch(() => {});
   }
 
   getTransaction(id: string): Transaction | undefined {
@@ -170,6 +173,8 @@ class PyxisState {
     if (!tx) return undefined;
     const updated = { ...tx, ...patch };
     this.transactions.set(id, updated);
+    // Mirror update to Redis (fire-and-forget)
+    redisUpdate(updated).catch(() => {});
     return updated;
   }
 
@@ -188,6 +193,8 @@ class PyxisState {
     if (!tx) return false;
     if (tx.settledAt) return false; // already settled
     tx.settledAt = new Date();
+    // Mirror settlement to Redis (fire-and-forget)
+    redisUpdate(tx).catch(() => {});
     return true;
   }
 
@@ -232,6 +239,14 @@ class PyxisState {
     return randomUUID();
   }
 
+  getAllTransactions(terminalId?: string, limit = 100): Transaction[] {
+    const all = [...this.transactions.values()]
+      .filter((tx) => !terminalId || tx.terminalId === terminalId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, limit);
+    return all;
+  }
+
   findDuplicate(terminalId: string, totalAmount: number, accountFirst6: string, accountLast4: string): Transaction | undefined {
     const cutoff = new Date(Date.now() - 60 * 1000); // 60 second window
     for (const [, tx] of this.transactions) {
@@ -255,6 +270,20 @@ class PyxisState {
     this.cardFingerprints.clear();
     this.tokenizedCards.clear();
     this.transactions.clear();
+  }
+
+  /**
+   * Load persisted transactions from Redis into in-memory state.
+   * Called once on server startup. Safe to call even if Redis is unavailable.
+   */
+  async loadFromRedis(): Promise<void> {
+    const transactions = await redisLoadAll();
+    for (const tx of transactions) {
+      // Only load if not already in memory (avoid overwriting fresher in-memory state)
+      if (!this.transactions.has(tx.transactionId)) {
+        this.transactions.set(tx.transactionId, tx);
+      }
+    }
   }
 }
 

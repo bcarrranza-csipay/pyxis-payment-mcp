@@ -12,6 +12,7 @@ import {
   simulateConvenienceFee,
   simulateBinLookup,
   simulateSettleTransactions,
+  simulateGetAllTransactions,
 } from "./simulator.js";
 import { requireValidToken } from "./auth-guard.js";
 import { auditLog, sanitizeArgs } from "./audit.js";
@@ -67,7 +68,7 @@ export function handleToolCall(
   }
 
   // Auth guard (skip for get_token, sandbox_info)
-  const noAuthRequired = ["pyxis_get_token", "pyxis_sandbox_info"];
+  const noAuthRequired = ["pyxis_get_token", "pyxis_sandbox_info", "pyxis_get_mode", "pyxis_get_all_transactions"];
   if (!noAuthRequired.includes(name)) {
     const guard = requireValidToken(a.bearerToken as string | undefined);
     if (!guard.valid) return textAndLog(guard.response);
@@ -302,6 +303,16 @@ export function handleToolCall(
 
     default:
       return textAndLog({ status: "Error", errorMsg: `Unknown tool: ${name}` });
+
+    // -- Get All Transactions (history restore) ----------------------------
+    case "pyxis_get_all_transactions": {
+      return textAndLog(
+        simulateGetAllTransactions({
+          terminalId: a.terminalId as string | undefined,
+          limit: a.limit as number | undefined,
+        })
+      );
+    }
 
     // -- Get Mode ----------------------------------------------------------
     case "pyxis_get_mode": {

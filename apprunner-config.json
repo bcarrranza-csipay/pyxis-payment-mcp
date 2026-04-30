@@ -10,7 +10,8 @@
           "PYXIS_MODE": "mock",
           "PYXIS_MCP_USERNAME": "sandbox",
           "PYXIS_MCP_PASSWORD": "sandbox",
-          "PYXIS_AUDIT_LOG": "/tmp/pyxis-audit.log"
+          "PYXIS_AUDIT_LOG": "/tmp/pyxis-audit.log",
+          "REDIS_URL": "YOUR_ELASTICACHE_ENDPOINT_HERE"
         }
       },
       "ImageRepositoryType": "ECR"

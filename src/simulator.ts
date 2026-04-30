@@ -1028,6 +1028,40 @@ export function simulateGetSettledTransactions(params: {
 }
 
 // ---------------------------------------------------------------------------
+// All Transactions (for app history restore from Redis)
+// ---------------------------------------------------------------------------
+
+export function simulateGetAllTransactions(params: {
+  terminalId?: string;
+  limit?: number;
+}) {
+  const all = state.getAllTransactions(params.terminalId, params.limit ?? 100);
+  return {
+    status: "Success",
+    operation: "GetAllTransactions",
+    responseTimestamp: timestamp(),
+    transactions: all.map((tx) => ({
+      transactionId: tx.transactionId,
+      type: tx.type,
+      transactionStatus: tx.status,
+      terminalId: tx.terminalId,
+      totalAmount: tx.totalAmount.toString(),
+      approvedAmount: tx.approvedAmount.toString(),
+      feeAmount: tx.feeAmount.toString(),
+      approvalNumber: tx.approvalNumber,
+      accountType: tx.accountType,
+      accountFirst6: tx.accountFirst6,
+      accountLast4: tx.accountLast4,
+      isDeclined: tx.isDeclined,
+      creationTime: tx.createdAt.toISOString().replace("T", " ").replace(/\.\d+Z$/, ""),
+      settlementDate: tx.settledAt?.toISOString().split("T")[0],
+      gatewayResponseCode: tx.gatewayResponseCode,
+      gatewayResponseMessage: tx.gatewayResponseMessage,
+    })),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Convenience Fee
 // ---------------------------------------------------------------------------
 

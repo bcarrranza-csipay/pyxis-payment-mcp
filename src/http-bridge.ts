@@ -12,6 +12,7 @@
 import http from "node:http";
 import { handleToolCall as simHandleToolCall } from "./router.js";
 import { handleToolCall as liveHandleToolCall } from "./live-router.js";
+import { state } from "./state.js";
 
 // Use live-router when PYXIS_MODE is "mock" or "live"; fall back to simulator otherwise
 const isMockOrLive = process.env.PYXIS_MODE === "mock" || process.env.PYXIS_MODE === "live";
@@ -77,6 +78,12 @@ const server = http.createServer((req, res) => {
   });
 });
 
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`Pyxis Payment MCP HTTP bridge listening on http://0.0.0.0:${PORT}`);
+// Load persisted transactions from Redis before accepting requests.
+// Falls back silently if REDIS_URL is not set or Redis is unreachable.
+state.loadFromRedis().then(() => {
+  server.listen(PORT, "0.0.0.0", () => {
+    console.log(`Pyxis Payment MCP HTTP bridge listening on http://0.0.0.0:${PORT}`);
+    console.log(`Mode:  ${process.env.PYXIS_MODE ?? "simulator"}`);
+    console.log(`Redis: ${process.env.REDIS_URL ? "enabled" : "disabled (in-memory only)"}`);
+  });
 });

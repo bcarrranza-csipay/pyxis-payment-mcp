@@ -66,3 +66,11 @@
 {"ts":"2026-04-14T22:09:21.059Z","tool":"pyxis_settle_transactions","args":{"bearerToken":"80e2b5ed...","terminalId":"a1b2c3d4-e5f6-7890-abcd-ef1234567890","olderThanHours":0},"status":"Success","durationMs":1}
 {"ts":"2026-04-14T22:09:21.065Z","tool":"pyxis_settle_transactions","args":{"bearerToken":"80e2b5ed...","terminalId":"a1b2c3d4-e5f6-7890-abcd-ef1234567890","olderThanHours":0},"status":"Success","durationMs":0}
 {"ts":"2026-04-14T22:09:21.078Z","tool":"pyxis_refund","args":{"bearerToken":"80e2b5ed...","terminalId":"a1b2c3d4-e5f6-7890-abcd-ef1234567890","transactionToRefundId":"aba6d4ce-6433-469a-ad10-b57124c1fc8b"},"status":"Success","durationMs":1}
+{"ts":"2026-04-28T17:05:50.677Z","tool":"pyxis_get_all_transactions","args":{},"status":"Success","durationMs":2}
+{"ts":"2026-04-28T17:06:51.019Z","tool":"pyxis_sandbox_info","args":{},"status":"Success","durationMs":0}
+{"ts":"2026-04-28T17:08:45.045Z","tool":"pyxis_get_token","args":{"username":"sandbox","password":"[redacted]"},"status":"Success","durationMs":0}
+{"ts":"2026-04-28T17:15:27.901Z","tool":"pyxis_get_token","args":{"username":"sandbox","password":"[redacted]"},"status":"Success","durationMs":2}
+{"ts":"2026-04-28T17:15:28.214Z","tool":"pyxis_sale","args":{"bearerToken":"3bd51494...","terminalId":"a1b2c3d4-e5f6-7890-abcd-ef1234567890","accountInfo":{"accountNumber":"411111****1111","accountType":"Visa","accountAccessory":"12.2027"},"totalAmount":"2530"},"status":"Success","durationMs":0}
+{"ts":"2026-04-28T17:15:43.283Z","tool":"pyxis_get_all_transactions","args":{},"status":"Success","durationMs":1}
+{"ts":"2026-04-28T17:15:56.745Z","tool":"pyxis_get_all_transactions","args":{},"status":"Success","durationMs":0}
+{"ts":"2026-04-28T17:16:05.464Z","tool":"pyxis_get_all_transactions","args":{"terminalId":"a1b2c3d4-e5f6-7890-abcd-ef1234567890"},"status":"Success","durationMs":0}

@@ -22,7 +22,52 @@ import {
   convenienceFee,
   binLookup,
 } from "./pyxis-client.js";
+import { simulateGetAllTransactions } from "./simulator.js";
+import { state } from "./state.js";
+import type { Transaction, TransactionType, TransactionStatus } from "./state.js";
 import { auditLog, sanitizeArgs } from "./audit.js";
+
+// ---------------------------------------------------------------------------
+// Persist mock responses to state (→ Redis) so history survives restarts
+// ---------------------------------------------------------------------------
+
+/**
+ * After a successful mock operation, save the transaction to in-memory state
+ * so it gets mirrored to Redis and returned by pyxis_get_all_transactions.
+ */
+function persistToState(
+  result: Record<string, unknown>,
+  type: TransactionType,
+  terminalId: string,
+  totalAmount: number,
+  accountInfo?: { accountType?: string; accountFirst6?: string; accountLast4?: string }
+): void {
+  if (result.status !== "Success") return;
+  const txId = result.transactionId as string;
+  if (!txId) return;
+  // Don't double-save if already in state
+  if (state.getTransaction(txId)) return;
+
+  const tx: Transaction = {
+    transactionId:       txId,
+    terminalId,
+    type,
+    status:              (result.transactionStatus as TransactionStatus) ?? "Approved",
+    totalAmount,
+    approvedAmount:      parseInt((result.approvedAmount as string) ?? "0", 10),
+    feeAmount:           parseInt((result.feeAmount as string) ?? "0", 10),
+    approvalNumber:      (result.approvalNumber as string) ?? "",
+    accountType:         (result.accountType as string) ?? accountInfo?.accountType ?? "",
+    accountFirst6:       (result.accountFirst6 as string) ?? accountInfo?.accountFirst6 ?? "",
+    accountLast4:        (result.accountLast4 as string) ?? accountInfo?.accountLast4 ?? "",
+    createdAt:           new Date(),
+    gatewayResponseCode: (result.gatewayResponseCode as string) ?? "00",
+    gatewayResponseMessage: (result.gatewayResponseMessage as string) ?? "APPROVAL",
+    isDeclined:          false,
+    referencedTransactionId: result.referencedTransactionId as string | undefined,
+  };
+  state.saveTransaction(tx); // this also fires redisSave()
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -95,7 +140,7 @@ export async function handleToolCall(
   }
 
   // Auth guard — skip for get_token and sandbox_info
-  const noAuth = ["pyxis_get_token", "pyxis_sandbox_info"];
+  const noAuth = ["pyxis_get_token", "pyxis_sandbox_info", "pyxis_get_mode", "pyxis_get_all_transactions"];
   if (!noAuth.includes(name)) {
     const guard = validateBearerToken(a.bearerToken as string | undefined);
     if (!guard.valid) return respond(guard.error);
@@ -126,7 +171,7 @@ export async function handleToolCall(
       if (a.accountInfo && a.token) return respond(errorObj("Sale", "Provide either accountInfo or token, not both", "100"));
       if (!a.accountInfo && !a.token) return respond(errorObj("Sale", "Provide either accountInfo or token", "100"));
       if (parseInt(a.totalAmount as string, 10) <= 0) return respond(errorObj("Sale", "totalAmount must be greater than zero", "100"));
-      return respond(sale({
+      const saleResult = await sale({
         terminalId:             a.terminalId as string,
         token:                  a.token as string | undefined,
         accountInfo:            a.accountInfo as any,
@@ -136,7 +181,9 @@ export async function handleToolCall(
         recurring:              a.recurring as string | undefined,
         recurringScheduleTransId: a.recurringScheduleTransId as string | undefined,
         saleWithTokenize:       a.saleWithTokenize as boolean | undefined,
-      }));
+      });
+      persistToState(saleResult, "Sale", a.terminalId as string, parseInt(a.totalAmount as string, 10));
+      return respond(saleResult);
     }
 
     // ── Account Verify ────────────────────────────────────────────────────
@@ -158,13 +205,15 @@ export async function handleToolCall(
       if (!a.accountInfo && !a.token) return respond(errorObj("Authorize", "Provide either accountInfo or token", "100"));
       if (parseInt(a.totalAmount as string, 10) <= 0) return respond(errorObj("Authorize", "totalAmount must be greater than zero", "100"));
       if (a.recurring) return respond(errorObj("Authorize", "Recurring payments are not supported on Authorize. Use Sale instead.", "100"));
-      return respond(authorize({
+      const authResult = await authorize({
         terminalId:            a.terminalId as string,
         token:                 a.token as string | undefined,
         accountInfo:           a.accountInfo as any,
         totalAmount:           a.totalAmount as string,
         externalTransactionId: a.externalTransactionId as string | undefined,
-      }));
+      });
+      persistToState(authResult, "Authorization", a.terminalId as string, parseInt(a.totalAmount as string, 10));
+      return respond(authResult);
     }
 
     // ── Capture ───────────────────────────────────────────────────────────
@@ -173,21 +222,26 @@ export async function handleToolCall(
       if (!a.transactionId)  return respond(errorObj("Capture", "Missing required field: transactionId", "100"));
       if (a.totalAmount && parseInt(a.totalAmount as string, 10) <= 0)
         return respond(errorObj("Capture", "totalAmount must be greater than zero", "100"));
-      return respond(capture({
+      const captureAmt = a.totalAmount ? parseInt(a.totalAmount as string, 10) : 0;
+      const captureResult = await capture({
         terminalId:    a.terminalId as string,
         transactionId: a.transactionId as string,
         totalAmount:   a.totalAmount as string | undefined,
-      }));
+      });
+      persistToState(captureResult, "Capture", a.terminalId as string, captureAmt);
+      return respond(captureResult);
     }
 
     // ── Void ──────────────────────────────────────────────────────────────
     case "pyxis_void": {
       if (!a.terminalId)          return respond(errorObj("Void", "Missing required field: terminalId", "100"));
       if (!a.transactionToVoidId) return respond(errorObj("Void", "Missing required field: transactionToVoidId", "100"));
-      return respond(voidTransaction({
+      const voidResult = await voidTransaction({
         terminalId:          a.terminalId as string,
         transactionToVoidId: a.transactionToVoidId as string,
-      }));
+      });
+      persistToState(voidResult, "Void", a.terminalId as string, 0);
+      return respond(voidResult);
     }
 
     // ── Refund ────────────────────────────────────────────────────────────
@@ -196,11 +250,14 @@ export async function handleToolCall(
       if (!a.transactionToRefundId) return respond(errorObj("Refund", "Missing required field: transactionToRefundId", "100"));
       if (a.totalAmount && parseInt(a.totalAmount as string, 10) <= 0)
         return respond(errorObj("Refund", "totalAmount must be greater than zero", "100"));
-      return respond(refund({
+      const refundAmt = a.totalAmount ? parseInt(a.totalAmount as string, 10) : 0;
+      const refundResult = await refund({
         terminalId:            a.terminalId as string,
         transactionToRefundId: a.transactionToRefundId as string,
         totalAmount:           a.totalAmount as string | undefined,
-      }));
+      });
+      persistToState(refundResult, "Refund", a.terminalId as string, refundAmt);
+      return respond(refundResult);
     }
 
     // ── Get Transaction ───────────────────────────────────────────────────
@@ -234,6 +291,15 @@ export async function handleToolCall(
       if (!a.accountNumber) return respond(errorObj("BinLookup", "Missing required field: accountNumber", "100"));
       return respond(binLookup(a.accountNumber as string));
     }
+
+    // ── Get All Transactions (history restore from Redis) ─────────────────
+    case "pyxis_get_all_transactions":
+      return respond(
+        simulateGetAllTransactions({
+          terminalId: a.terminalId as string | undefined,
+          limit: a.limit as number | undefined,
+        })
+      );
 
     // ── Settle Transactions (simulator-only — not available in live/mock) ─
     case "pyxis_settle_transactions":
