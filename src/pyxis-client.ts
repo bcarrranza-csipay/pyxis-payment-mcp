@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { state } from "./state.js";
 
 /**
  * pyxis-client.ts
@@ -445,15 +446,22 @@ export async function refund(params: {
     });
   }
 
-  const amount = params.totalAmount ? parseInt(params.totalAmount, 10) : 1000;
+  // Look up the original transaction amount from state so the refund reflects
+  // the actual sale amount rather than a hardcoded default
+  const originalTx = state.getTransaction(params.transactionToRefundId);
+  const amount = params.totalAmount
+    ? parseInt(params.totalAmount, 10)
+    : (originalTx?.approvedAmount ?? 0);
   const txId = randomUUID();
   return {
     status: "Success", operation: "Refund", responseTimestamp: ts(),
     transactionId: txId,
     referencedTransactionId: params.transactionToRefundId,
     approvedAmount: amount.toString(),
-    accountType: "Visa", accountFirst6: "411111", accountLast4: "1111",
-    accountMasked: "411111******1111",
+    accountType: originalTx?.accountType ?? "Visa",
+    accountFirst6: originalTx?.accountFirst6 ?? "411111",
+    accountLast4: originalTx?.accountLast4 ?? "1111",
+    accountMasked: masked(originalTx?.accountFirst6 ?? "411111", originalTx?.accountLast4 ?? "1111"),
     gatewayResponseCode: "00", gatewayResponseMessage: "APPROVAL",
   };
 }
